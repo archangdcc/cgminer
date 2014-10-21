@@ -690,52 +690,32 @@ static void avalon2_stratum_pkgs(struct cgpu_info *avalon2, struct pool *pool)
 	if (avalon2_send_bc_pkgs(avalon2, &pkg))
 		return;
 
-	if (pool->coinbase_len > AVA2_P_COINBASE_SIZE) {
-		int coinbase_len_posthash, coinbase_len_prehash;
-		uint8_t coinbase_prehash[32];
-		coinbase_len_prehash = pool->nonce2_offset - (pool->nonce2_offset % SHA256_BLOCK_SIZE);
-		coinbase_len_posthash = pool->coinbase_len - coinbase_len_prehash;
-		sha256_prehash(pool->coinbase, coinbase_len_prehash, coinbase_prehash);
+	int coinbase_len_posthash, coinbase_len_prehash;
+	uint8_t coinbase_prehash[32];
+	coinbase_len_prehash = pool->nonce2_offset - (pool->nonce2_offset % SHA256_BLOCK_SIZE);
+	coinbase_len_posthash = pool->coinbase_len - coinbase_len_prehash;
+	sha256_prehash(pool->coinbase, coinbase_len_prehash, coinbase_prehash);
 
-		a = (coinbase_len_posthash / AVA2_P_DATA_LEN) + 1;
-		b = coinbase_len_posthash % AVA2_P_DATA_LEN;
-		memcpy(pkg.data, coinbase_prehash, 32);
-		avalon2_init_pkg(&pkg, AVA2_P_COINBASE, 1, a + (b ? 1 : 0));
+	a = (coinbase_len_posthash / AVA2_P_DATA_LEN) + 1;
+	b = coinbase_len_posthash % AVA2_P_DATA_LEN;
+	memcpy(pkg.data, coinbase_prehash, 32);
+	avalon2_init_pkg(&pkg, AVA2_P_COINBASE, 1, a + (b ? 1 : 0));
+	if (avalon2_send_bc_pkgs(avalon2, &pkg))
+		return;
+	applog(LOG_DEBUG, "Avalon2: Pool stratum message modified COINBASE: %d %d", a, b);
+	for (i = 1; i < a; i++) {
+		memcpy(pkg.data, pool->coinbase + coinbase_len_prehash + i * 32 - 32, 32);
+		avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, a + (b ? 1 : 0));
 		if (avalon2_send_bc_pkgs(avalon2, &pkg))
 			return;
-		applog(LOG_DEBUG, "Avalon2: Pool stratum message modified COINBASE: %d %d", a, b);
-		for (i = 1; i < a; i++) {
-			memcpy(pkg.data, pool->coinbase + coinbase_len_prehash + i * 32 - 32, 32);
-			avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, a + (b ? 1 : 0));
-			if (avalon2_send_bc_pkgs(avalon2, &pkg))
-				return;
-		}
-		if (b) {
-			memset(pkg.data, 0, AVA2_P_DATA_LEN);
-			memcpy(pkg.data, pool->coinbase + coinbase_len_prehash + i * 32 - 32, b);
-			avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, i + 1);
-			if (avalon2_send_bc_pkgs(avalon2, &pkg))
-				return;
-		}
-	} else {
-		a = pool->coinbase_len / AVA2_P_DATA_LEN;
-		b = pool->coinbase_len % AVA2_P_DATA_LEN;
-		applog(LOG_DEBUG, "Avalon2: Pool stratum message COINBASE: %d %d", a, b);
-		for (i = 0; i < a; i++) {
-			memcpy(pkg.data, pool->coinbase + i * 32, 32);
-			avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, a + (b ? 1 : 0));
-			if (avalon2_send_bc_pkgs(avalon2, &pkg))
-				return;
-		}
-		if (b) {
-			memset(pkg.data, 0, AVA2_P_DATA_LEN);
-			memcpy(pkg.data, pool->coinbase + i * 32, b);
-			avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, i + 1);
-			if (avalon2_send_bc_pkgs(avalon2, &pkg))
-				return;
-		}
 	}
-
+	if (b) {
+		memset(pkg.data, 0, AVA2_P_DATA_LEN);
+		memcpy(pkg.data, pool->coinbase + coinbase_len_prehash + i * 32 - 32, b);
+		avalon2_init_pkg(&pkg, AVA2_P_COINBASE, i + 1, i + 1);
+		if (avalon2_send_bc_pkgs(avalon2, &pkg))
+			return;
+	}
 
 	b = pool->merkles;
 	applog(LOG_DEBUG, "Avalon2: Pool stratum message MERKLES: %d", b);
