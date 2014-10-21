@@ -282,13 +282,17 @@ static void adjust_fan(struct avalon2_info *info)
 
 	t = get_current_temp_max(info);
 
-	/* TODO: Add options for temperature range and fan adjust function */
-	if (t < 60)
-		info->fan_pct = opt_avalon2_fan_min;
-	else if (t > 80)
-		info->fan_pct = opt_avalon2_fan_max;
-	else
-		info->fan_pct = (t - 60) * (opt_avalon2_fan_max - opt_avalon2_fan_min) / 20 + opt_avalon2_fan_min;
+	/* TODO: Add options for temperature range and fan adjust function 42 ~ 48 */
+	if (t < 42) {
+		info->fan_pct = (42 - t) * (opt_avalon2_fan_max - opt_avalon2_fan_min) / 30 + opt_avalon2_fan_min;
+		if (info->fan_pct < opt_avalon2_fan_min)
+			info->fan_pct = opt_avalon2_fan_min;
+	} else if (t > 48) {
+		info->fan_pct = (t - 42) * (opt_avalon2_fan_max - opt_avalon2_fan_min) / 5 + (opt_avalon2_fan_min + opt_avalon2_fan_max) / 2;
+		if (info->fan_pct > opt_avalon2_fan_max)
+			info->fan_pct = opt_avalon2_fan_max;
+	} else
+		info->fan_pct = (t - 42) * (opt_avalon2_fan_max - opt_avalon2_fan_min) / 10 + opt_avalon2_fan_min;
 
 	info->fan_pwm = get_fan_pwm(info->fan_pct);
 }
