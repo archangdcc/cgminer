@@ -61,8 +61,8 @@ int opt_avalon2_polling_delay = AVALON2_DEFAULT_POLLING_DELAY;
 
 enum avalon2_fan_fixed opt_avalon2_fan_fixed = FAN_AUTO;
 
-int opt_avalon2_aucspeed = AVA2_AVA4_AUCSPEED;
-int opt_avalon2_aucxdelay = AVA2_AVA4_AUCXDELAY;
+int opt_avalon2_aucspeed = AVA2_AUCSPEED;
+int opt_avalon2_aucxdelay = AVA2_AUCXDELAY;
 
 #define UNPACK32(x, str)			\
 {						\
@@ -161,7 +161,7 @@ char *set_avalon2_freq(char *arg)
 	}
 
 	if (!val1)
-		val3 = val2 = val1 = AVA2_AVA4_FREQUENCY;
+		val3 = val2 = val1 = AVA2_DEFAULT_FREQUENCY;
 
 	if (!val2)
 		val3 = val2 = val1;
@@ -404,8 +404,6 @@ static void decode_pkg(struct thr_info *thr, struct avalon2_ret *ar)
 		memcpy(&(info->power_good[modular_id]), ar->data + 24, 4);
 
 		info->get_frequency[modular_id] = be32toh(info->get_frequency[modular_id]);
-		if (info->dev_type[modular_id] == AVA2_ID_AVA3)
-			info->get_frequency[modular_id] = info->get_frequency[modular_id] * 768 / 65;
 		if (info->dev_type[modular_id] == AVA2_ID_AVA4)
 			info->get_frequency[modular_id] = info->get_frequency[modular_id] * 3968 / 65;
 		info->get_voltage[modular_id] = be32toh(info->get_voltage[modular_id]);
@@ -631,6 +629,9 @@ static void avalon2_stratum_pkgs(struct cgpu_info *avalon2, struct pool *pool)
 	int job_id_len, n2size;
 	unsigned short crc;
 
+	int coinbase_len_posthash, coinbase_len_prehash;
+	uint8_t coinbase_prehash[32];
+
 	/* Send out the first stratum message STATIC */
 	applog(LOG_DEBUG, "Avalon2: Pool stratum message STATIC: %d, %d, %d, %d, %d",
 	       pool->coinbase_len,
@@ -690,8 +691,6 @@ static void avalon2_stratum_pkgs(struct cgpu_info *avalon2, struct pool *pool)
 	if (avalon2_send_bc_pkgs(avalon2, &pkg))
 		return;
 
-	int coinbase_len_posthash, coinbase_len_prehash;
-	uint8_t coinbase_prehash[32];
 	coinbase_len_prehash = pool->nonce2_offset - (pool->nonce2_offset % SHA256_BLOCK_SIZE);
 	coinbase_len_posthash = pool->coinbase_len - coinbase_len_prehash;
 	sha256_prehash(pool->coinbase, coinbase_len_prehash, coinbase_prehash);
@@ -839,27 +838,12 @@ static struct cgpu_info *avalon2_detect_one(struct libusb_device *dev, struct us
 		info->dev_type[i] = AVA2_ID_AVAX;
 		memcpy(info->mm_dna[i], mm_dna, AVA2_DNA_LEN);
 
-		if (!strncmp((char *)&(info->mm_version[i]), AVA2_FW2_PREFIXSTR, 2)) {
-			info->dev_type[i] = AVA2_ID_AVA2;
-			info->set_voltage = AVA2_DEFAULT_VOLTAGE_MIN;
-			info->set_frequency[0] = AVA2_DEFAULT_FREQUENCY;
-		}
-		if (!strncmp((char *)&(info->mm_version[i]), AVA2_FW3_PREFIXSTR, 2)) {
-			info->dev_type[i] = AVA2_ID_AVA3;
-			info->set_voltage = AVA2_AVA3_VOLTAGE;
-			info->set_frequency[0] = AVA2_AVA3_FREQUENCY;
-		}
-		if (!strncmp((char *)&(info->mm_version[i]), AVA2_FW35_PREFIXSTR, 2)) {
-			info->dev_type[i] = AVA2_ID_AVA3;
-			info->set_voltage = AVA2_AVA3_VOLTAGE;
-			info->set_frequency[0] = AVA2_AVA3_FREQUENCY;
-		}
 		if (!strncmp((char *)&(info->mm_version[i]), AVA2_FW4_PREFIXSTR, 2)) {
 			info->dev_type[i] = AVA2_ID_AVA4;
-			info->set_voltage = AVA2_AVA4_VOLTAGE;
-			info->set_frequency[0] = AVA2_AVA4_FREQUENCY;
-			info->set_frequency[1] = AVA2_AVA4_FREQUENCY;
-			info->set_frequency[2] = AVA2_AVA4_FREQUENCY;
+			info->set_voltage = AVA2_DEFAULT_VOLTAGE;
+			info->set_frequency[0] = AVA2_DEFAULT_FREQUENCY;
+			info->set_frequency[1] = AVA2_DEFAULT_FREQUENCY;
+			info->set_frequency[2] = AVA2_DEFAULT_FREQUENCY;
 		}
 	}
 
@@ -1132,14 +1116,8 @@ static struct api_data *avalon2_api_stats(struct cgpu_info *cgpu)
 			continue;
 		}
 
-		if (info->dev_type[i] == AVA2_ID_AVA2)
-			minercount = AVA2_DEFAULT_MINERS;
-
-		if (info->dev_type[i] == AVA2_ID_AVA3)
-			minercount = AVA2_AVA3_MINERS;
-
 		if (info->dev_type[i] == AVA2_ID_AVA4)
-			minercount = AVA2_AVA4_MINERS;
+			minercount = AVA2_DEFAULT_MINERS;
 
 		strcat(statbuf[i], " MW[");
 		for (j = minerindex; j < (minerindex + minercount); j++) {

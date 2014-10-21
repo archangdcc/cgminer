@@ -17,42 +17,28 @@
 #ifdef USE_AVALON2
 
 #define AVA2_MINER_THREADS	1
-
-#define AVA2_RESET_FAULT_DECISECONDS	10
-#define AVA2_IO_SPEED		115200
-
 #define AVA2_DEFAULT_MODULARS	4
 
 #define AVA2_PWM_MAX	0x3FF
-#define AVA2_DEFAULT_FAN_PWM	15 /* % */
-#define AVA2_DEFAULT_FAN_MIN	10
-#define AVA2_DEFAULT_FAN_MAX	85
+#define AVA2_DEFAULT_FAN_PWM	30 /* % */
+#define AVA2_DEFAULT_FAN_MIN	20
+#define AVA2_DEFAULT_FAN_MAX	100
 
-#define AVALON2_TEMP_OVERHEAT	98
+#define AVALON2_TEMP_OVERHEAT	60
 #define AVALON2_DEFAULT_POLLING_DELAY	20 /* ms */
 
-#define AVA2_DEFAULT_VOLTAGE_MIN	6000
+#define AVA2_DEFAULT_VOLTAGE_MIN	5000
 #define AVA2_DEFAULT_VOLTAGE_MAX	11000
 
 #define AVA2_DEFAULT_FREQUENCY_MIN	200
-#define AVA2_DEFAULT_FREQUENCY_MAX	2000
+#define AVA2_DEFAULT_FREQUENCY_MAX	1000
 
-/* Avalon2 default values */
 #define AVA2_DEFAULT_MINERS	10
-#define AVA2_DEFAULT_VOLTAGE	10000 /* v * 10000 */
-#define AVA2_DEFAULT_FREQUENCY	1500 /* In MHs */
+#define AVA2_DEFAULT_VOLTAGE	7875
+#define AVA2_DEFAULT_FREQUENCY	200
 
-/* Avalon3 default values */
-#define AVA2_AVA3_MINERS	5
-#define AVA2_AVA3_VOLTAGE	6660 /* 0.666v */
-#define AVA2_AVA3_FREQUENCY	450  /* MHz * 11.8 = MHs: 450MHz means ~5.3GHs */
-
-/* Avalon4 default values */
-#define AVA2_AVA4_MINERS	10
-#define AVA2_AVA4_VOLTAGE	7000 /* 0.666v */
-#define AVA2_AVA4_FREQUENCY	200  /* MHz * 61.3 = MHs */
-#define AVA2_AVA4_AUCSPEED	1000000
-#define AVA2_AVA4_AUCXDELAY  	4800 /* 4800 = 1ms in AUC (11U14)  */
+#define AVA2_AUCSPEED		1000000
+#define AVA2_AUCXDELAY  	4800 /* 4800 = 1ms in AUC (11U14)  */
 
 /* Avalon2 protocol package type */
 #define AVA2_H1	'A'
@@ -92,24 +78,15 @@
 
 #define AVA2_MODULE_BROADCAST	0
 
-/* Avalon2/3 firmware prefix */
-#define AVA2_FW2_PREFIXSTR	"20"
-#define AVA2_FW3_PREFIXSTR	"33"
-#define AVA2_FW35_PREFIXSTR	"35"
 #define AVA2_FW4_PREFIXSTR	"40"
-
 #define AVA2_MM_VERNULL		"NONE"
 
-#define AVA2_ID_AVA2		3255
-#define AVA2_ID_AVA3		3233
 #define AVA2_ID_AVA4		3222
 #define AVA2_ID_AVAX		3200
 
 #define AVA2_IIC_RESET		0xa0
 #define AVA2_IIC_INIT		0xa1
 #define AVA2_IIC_DEINIT		0xa2
-#define AVA2_IIC_WRITE		0xa3
-#define AVA2_IIC_READ		0xa4
 #define AVA2_IIC_XFER		0xa5
 #define AVA2_IIC_INFO		0xa6
 
@@ -179,27 +156,13 @@ struct avalon2_iic_info {
 	} iic_param;
 };
 
-struct avalon2_discover_info {
-	char mm_dna[AVA2_DNA_LEN];
-	int modular_id;
-	char mm_version[16];
-};
-
 #define AVA2_WRITE_SIZE (sizeof(struct avalon2_pkg))
 #define AVA2_READ_SIZE AVA2_WRITE_SIZE
-#define AVA2_IIC_P_SIZE	64
 
-#define AVA2_GETS_OK 0
-#define AVA2_GETS_TIMEOUT -1
-#define AVA2_GETS_RESTART -2
-#define AVA2_GETS_ERROR -3
-#define AVA2_GETS_EXTRA_DATA -4
+#define AVA2_IIC_P_SIZE	64
 
 #define AVA2_SEND_OK 0
 #define AVA2_SEND_ERROR -1
-
-#define avalon2_open(devpath, baud, purge)  serial_open(devpath, baud, AVA2_RESET_FAULT_DECISECONDS, purge)
-#define avalon2_close(fd) close(fd)
 
 extern char *set_avalon2_fan(char *arg);
 extern char *set_avalon2_freq(char *arg);
