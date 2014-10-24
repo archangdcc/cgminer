@@ -92,11 +92,11 @@ enum avalon2_fan_fixed {
 struct avalon2_pkg {
 	uint8_t head[2];
 	uint8_t type;
+	uint8_t opt;
 	uint8_t idx;
 	uint8_t cnt;
 	uint8_t data[32];
 	uint8_t crc[2];
-	uint8_t opt;
 };
 #define avalon2_ret avalon2_pkg
 
