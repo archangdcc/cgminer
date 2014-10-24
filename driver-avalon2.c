@@ -205,6 +205,7 @@ static int avalon2_init_pkg(struct avalon2_pkg *pkg, uint8_t type, uint8_t idx, 
 	pkg->head[1] = AVA2_H2;
 
 	pkg->type = type;
+	pkg->opt = 0;
 	pkg->idx = idx;
 	pkg->cnt = cnt;
 
@@ -1115,17 +1116,17 @@ static struct api_data *avalon2_api_stats(struct cgpu_info *cgpu)
 		sprintf(buf, " DH[%.3f%%]", hwp * 100);
 		strcat(statbuf[i], buf);
 	}
-	for (i = 0; i < 2 * AVA2_DEFAULT_MODULARS; i+=2) {
-		if(info->dev_type[i/2] == AVA2_ID_AVAX)
+	for (i = 0; i < AVA2_DEFAULT_MODULARS; i++) {
+		if(info->dev_type[i] == AVA2_ID_AVAX)
 			continue;
 		sprintf(buf, " Temp[%d]", info->temp[i]);
-		strcat(statbuf[i/2], buf);
+		strcat(statbuf[i], buf);
 	}
-	for (i = 0; i < 2 * AVA2_DEFAULT_MODULARS; i+=2) {
-		if(info->dev_type[i/2] == AVA2_ID_AVAX)
+	for (i = 0; i < AVA2_DEFAULT_MODULARS; i++) {
+		if(info->dev_type[i] == AVA2_ID_AVAX)
 			continue;
 		sprintf(buf, " Fan[%d]", info->fan[i]);
-		strcat(statbuf[i/2], buf);
+		strcat(statbuf[i], buf);
 	}
 	for (i = 0; i < AVA2_DEFAULT_MODULARS; i++) {
 		if(info->dev_type[i] == AVA2_ID_AVAX)
