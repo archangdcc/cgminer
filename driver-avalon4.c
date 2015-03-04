@@ -2036,37 +2036,37 @@ static char *avalon4_set_device(struct cgpu_info *avalon4, char *option, char *s
 	}
 
 	if (strcasecmp(option, "led") == 0) {
-		int val_mod, val_led;
+		int val_led;
 		bool toggle = false;
 		if (!setting || !*setting) {
 			sprintf(replybuf, "missing module_id setting");
 			return replybuf;
 		}
 
-		if (!sscanf(setting, "%d-%d", &val_mod, &val_led)) {
+		if (!sscanf(setting, "%d-%d", &val, &val_led)) {
 			toggle = true;
-			val_mod = atoi(setting);
+			val = atoi(setting);
 		}
-		if (val_mod < 1 || val_mod >= AVA4_DEFAULT_MODULARS) {
-			sprintf(replybuf, "invalid module_id: %d, valid range 1-%d", val_mod, AVA4_DEFAULT_MODULARS);
+		if (val < 1 || val >= AVA4_DEFAULT_MODULARS) {
+			sprintf(replybuf, "invalid module_id: %d, valid range 1-%d", val, AVA4_DEFAULT_MODULARS);
 			return replybuf;
 		}
 
-		if (!info->enable[val_mod]) {
-			sprintf(replybuf, "the current module was disabled %d", val_mod);
+		if (!info->enable[val]) {
+			sprintf(replybuf, "the current module was disabled %d", val);
 			return replybuf;
 		}
 
 		if (toggle)
-			info->led_red[val_mod] = !info->led_red[val_mod];
+			info->led_red[val] = !info->led_red[val];
 		else {
-			if (val_led < 0 || val_mod > 1) {
+			if (val_led < 0 || val_led > 1) {
 				sprintf(replybuf, "invalid LED status: %d, valid value 0|1", val_led);
 				return replybuf;
 			}
-			if (val_led != info->led_red[val_mod]) {
+			if (val_led != info->led_red[val]) {
 				toggle = true;
-				info->led_red[val_mod] = val_led;
+				info->led_red[val] = val_led;
 			}
 		}
 
