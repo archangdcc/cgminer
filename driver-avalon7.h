@@ -112,6 +112,7 @@
 #define AVA7_P_SET_PMU	0x24
 #define AVA7_P_SET_PLL	0x25
 #define AVA7_P_SET_SS	0x26
+#define AVA7_P_PAIRS	0x27
 
 /* Have to send with I2C address */
 #define AVA7_P_POLLING	0x30
@@ -260,6 +261,9 @@ struct avalon7_info {
 	uint64_t diff1[AVA7_DEFAULT_MODULARS];
 
 	bool conn_overloaded;
+
+	/* SSP */
+	pthread_t ssp_thr;
 };
 
 struct avalon7_iic_info {
