@@ -263,7 +263,7 @@ char *set_avalon7_fan(char *arg)
 
 	ret = sscanf(arg, "%d-%d", &val1, &val2);
 	if (ret < 1)
-		return "No values passed to avalon7-fan";
+		return "No value passed to avalon7-fan";
 	if (ret == 1)
 		val2 = val1;
 
@@ -325,7 +325,7 @@ char *set_avalon7_voltage(char *arg)
 
 	ret = sscanf(arg, "%d", &val);
 	if (ret < 1)
-		return "No values passed to avalon7-voltage";
+		return "No value passed to avalon7-voltage";
 
 	if (val < AVA7_DEFAULT_VOLTAGE_MIN || val > AVA7_DEFAULT_VOLTAGE_MAX)
 		return "Invalid value passed to avalon7-voltage";
@@ -1246,7 +1246,7 @@ static void detect_modules(struct cgpu_info *avalon7)
 	uint8_t rbuf[AVA7_AUC_P_SIZE];
 
 	/* Detect new modules here */
-	for (i = 1; i < AVA7_DEFAULT_MODULARS; i++) {
+	for (i = 1; i < AVA7_DEFAULT_MODULARS + 1; i++) {
 		if (info->enable[i])
 			continue;
 
@@ -1279,6 +1279,14 @@ static void detect_modules(struct cgpu_info *avalon7)
 
 		if (check_module_exist(avalon7, ret_pkg.data))
 			continue;
+
+		/* Check count of modulars */
+		if (i == AVA7_DEFAULT_MODULARS) {
+			applog(LOG_NOTICE, "You have connected more than %d machines. This is discouraged.", (AVA7_DEFAULT_MODULARS - 1));
+			info->conn_overloaded = true;
+			break;
+		} else
+			info->conn_overloaded = false;
 
 		info->enable[i] = 1;
 		cgtime(&info->elapsed[i]);
@@ -1339,7 +1347,7 @@ static void detect_modules(struct cgpu_info *avalon7)
 		memset(info->pmu_version[i], 0, sizeof(char) * 5 * AVA7_DEFAULT_PMU_CNT);
 		info->diff1[i] = 0;
 
-		applog(LOG_NOTICE, "%s-%d: New module detect! ID[%d-%x]",
+		applog(LOG_NOTICE, "%s-%d: New module detected! ID[%d-%x]",
 		       avalon7->drv->name, avalon7->device_id, i, info->mm_dna[i][AVA7_MM_DNA_LEN - 1]);
 
 		/* Tell MM, it has been detected */
@@ -2187,6 +2195,8 @@ static struct api_data *avalon7_api_stats(struct cgpu_info *avalon7)
 		auc_temp = decode_auc_temp(info->auc_sensor);
 		root = api_add_temp(root, "AUC Temperature", &auc_temp, true);
 	}
+
+	root = api_add_bool(root, "Connection Overloaded", &info->conn_overloaded, true);
 
 	return root;
 }
