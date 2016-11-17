@@ -488,7 +488,7 @@ static int decode_pkg(struct thr_info *thr, struct avalon7_ret *ar, int modular_
 		if (ntime > info->max_ntime)
 			info->max_ntime = ntime;
 
-		applog(LOG_DEBUG, "%s-%d-%d: Found! P:%d - N2:%08x N:%08x NR:%d/%d [M:%d - MW: (%"PRIu64",%"PRIu64",%"PRIu64",%"PRIu64")]",
+		applog(LOG_NOTICE, "%s-%d-%d: Found! P:%d - N2:%08x N:%08x NR:%d/%d [M:%d - MW: (%"PRIu64",%"PRIu64",%"PRIu64",%"PRIu64")]",
 		       avalon7->drv->name, avalon7->device_id, modular_id,
 		       pool_no, nonce2, nonce, ntime, info->max_ntime,
 		       miner,
@@ -559,6 +559,8 @@ static int decode_pkg(struct thr_info *thr, struct avalon7_ret *ar, int modular_
 		memcpy(&tmp, ar->data + 24, 4);
 		info->error_crc[modular_id][ar->idx] += be32toh(tmp);
 
+		memcpy(&tmp, ar->data + 28, 4);
+		info->mm_got_pairs += be32toh(tmp);
 		break;
 	case AVA7_P_STATUS_PMU:
 		/* TODO: decode ntc led from PMU */
@@ -1217,7 +1219,7 @@ static void *avalon7_ssp_fill_pairs(void *userdata)
 	struct avalon7_pkg send_pkg;
 	ssp_pair pair;
 	uint8_t pair_counts;
-	int i;
+	int i, err;
 	uint32_t tmp;
 
 	snprintf(threadname, sizeof(threadname), "%d/Av7ssp", avalon7->device_id);
@@ -1240,12 +1242,19 @@ static void *avalon7_ssp_fill_pairs(void *userdata)
 				tmp = be32toh(pair[0]);
 				memcpy(send_pkg.data + pair_counts * 8, &tmp, 4);
 				tmp = be32toh(pair[1]);
+				applog(LOG_NOTICE, "send pair %08x-%08x", pair[0], pair[1]);
 				memcpy(send_pkg.data + pair_counts * 8 + 4, &tmp, 4);
 				pair_counts++;
+				info->gen_pairs++;
 			}
 
 			avalon7_init_pkg(&send_pkg, AVA7_P_PAIRS, 1, 1);
-			avalon7_iic_xfer_pkg(avalon7, i, &send_pkg, NULL);
+			err = avalon7_iic_xfer_pkg(avalon7, i, &send_pkg, NULL);
+			if (err != AVA7_SEND_OK) {
+				applog(LOG_NOTICE, "%s-%d: send pair failed %d",
+						avalon7->drv->name, avalon7->device_id, err);
+			}
+			cgsleep_ms(opt_avalon7_polling_delay);
 		}
 	}
 
@@ -1639,11 +1648,11 @@ static void avalon7_set_freq(struct cgpu_info *avalon7, int addr, int miner_id, 
 	for (i = 1; i < AVA7_DEFAULT_PLL_CNT; i++)
 		f = f > freq[i] ? f : freq[i];
 
-	tmp = ((AVA7_ASIC_TIMEOUT_CONST / f) * 40 / 4);
+	tmp = ((AVA7_ASIC_TIMEOUT_CONST / f) * 40 / 4) * (opt_avalon7_ssplus_enable ? 4 : 1);
 	tmp = be32toh(tmp);
 	memcpy(send_pkg.data + AVA7_DEFAULT_PLL_CNT * 4, &tmp, 4);
 
-	tmp = AVA7_ASIC_TIMEOUT_CONST / f * 98 / 100;
+	tmp = AVA7_ASIC_TIMEOUT_CONST / f * 98 / 100 * 3;
 	tmp = be32toh(tmp);
 	memcpy(send_pkg.data + AVA7_DEFAULT_PLL_CNT * 4 + 4, &tmp, 4);
 	applog(LOG_DEBUG, "%s-%d-%d: avalon7 set freq miner %x-%x",
@@ -2235,6 +2244,11 @@ static struct api_data *avalon7_api_stats(struct cgpu_info *avalon7)
 			sprintf(buf, "%d ", info->error_crc[i][j]);
 			strcat(statbuf, buf);
 		}
+		statbuf[strlen(statbuf) - 1] = ']';
+
+		strcat(statbuf, " PAIRS[");
+		sprintf(buf, "%"PRIu64" %"PRIu64" ", info->mm_got_pairs, info->gen_pairs);
+		strcat(statbuf, buf);
 		statbuf[strlen(statbuf) - 1] = ']';
 
 		strcat(statbuf, " PVT_T[");

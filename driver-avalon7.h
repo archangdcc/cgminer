@@ -265,6 +265,8 @@ struct avalon7_info {
 	uint64_t diff1[AVA7_DEFAULT_MODULARS];
 
 	bool conn_overloaded;
+	uint64_t mm_got_pairs;
+	uint64_t gen_pairs;
 
 	/* SSP */
 	pthread_t ssp_thr;

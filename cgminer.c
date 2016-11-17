@@ -4935,7 +4935,7 @@ static void signal_work_update(void)
 {
 	int i;
 
-	applog(LOG_INFO, "Work update message received");
+	applog(LOG_NOTICE, "Work update message received");
 
 	cgtime(&update_tv_start);
 	rd_lock(&mining_thr_lock);
