@@ -1764,6 +1764,10 @@ static void avalon7_sswork_update(struct cgpu_info *avalon7)
 	struct pool *pool;
 	int coinbase_len_posthash, coinbase_len_prehash;
 
+	/*
+	 * NOTE: We need mark work_restart to private information,
+	 * So that it cann't reset by hash_driver_work
+	 */
 	if (thr->work_restart)
 		info->work_restart = thr->work_restart;
 	applog(LOG_DEBUG, "%s-%d: New stratum: restart: %d, update: %d",
