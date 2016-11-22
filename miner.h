@@ -980,6 +980,7 @@ struct pool;
 
 extern bool opt_work_update;
 extern bool opt_protocol;
+extern bool opt_notify_nonce;
 extern bool have_longpoll;
 extern char *opt_kernel_path;
 extern char *opt_socks_proxy;

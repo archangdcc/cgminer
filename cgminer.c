@@ -138,6 +138,7 @@ static char packagename[256];
 
 bool opt_work_update;
 bool opt_protocol;
+bool opt_notify_nonce;
 static struct benchfile_layout {
 	int length;
 	char *name;
@@ -1800,6 +1801,9 @@ static struct opt_table opt_config_table[] = {
 	OPT_WITHOUT_ARG("--protocol-dump|-P",
 			opt_set_bool, &opt_protocol,
 			"Verbose dump of protocol-level activities"),
+	OPT_WITHOUT_ARG("--notify-once|-N",
+			opt_set_bool, &opt_notify_nonce,
+			"Only use the first stratum package"),
 	OPT_WITH_ARG("--queue|-Q",
 		     set_null, NULL, &opt_set_null,
 		     opt_hidden),

@@ -1968,6 +1968,7 @@ static char *blank_merkle = "000000000000000000000000000000000000000000000000000
 
 static bool parse_notify(struct pool *pool, json_t *val)
 {
+	static bool notify;
 	char *job_id, *prev_hash, *coinbase1, *coinbase2, *bbversion, *nbit,
 	     *ntime, header[228];
 	unsigned char *cb1 = NULL, *cb2 = NULL;
@@ -1975,6 +1976,9 @@ static bool parse_notify(struct pool *pool, json_t *val)
 	bool clean, ret = false;
 	int merkles, i;
 	json_t *arr;
+
+	if (notify && opt_notify_nonce)
+		return true;
 
 	arr = json_array_get(val, 4);
 	if (!arr || !json_is_array(arr))
@@ -2108,8 +2112,10 @@ out_unlock:
 	/* A notify message is the closest stratum gets to a getwork */
 	pool->getwork_requested++;
 	total_getworks++;
-	if (pool == current_pool())
+	if (pool == current_pool()) {
 		opt_work_update = true;
+		notify = true;
+	}
 out:
 	return ret;
 }
