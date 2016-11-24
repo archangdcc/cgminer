@@ -7196,6 +7196,22 @@ bool submit_nonce2_nonce(struct thr_info *thr, struct pool *pool, struct pool *r
 	free_work(work);
 	return ret;
 }
+
+uint32_t gen_merkle_tail(struct pool *pool, uint32_t nonce2)
+{
+	struct work *work = make_work();
+	uint32_t tail;
+
+	cg_wlock(&pool->data_lock);
+	pool->nonce2 = nonce2;
+	cg_wunlock(&pool->data_lock);
+
+	gen_stratum_work(pool, work);
+	memcpy(&tail, work->data + 64, 4);
+
+	free_work(work);
+	return tail;
+}
 #endif
 
 /* Generates stratum based work based on the most recent notify information
@@ -9851,6 +9867,7 @@ int main(int argc, char *argv[])
 		early_quit(1, "usb resource thread create failed");
 	pthread_detach(thr->pth);
 #endif
+	ssp_hasher_test();
 
 	/* Use the DRIVER_PARSE_COMMANDS macro to fill all the device_drvs */
 	DRIVER_PARSE_COMMANDS(DRIVER_FILL_DEVICE_DRV)

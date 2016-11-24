@@ -179,6 +179,7 @@ uint32_t cpm_table[] =
 	0x01274813,
 };
 
+static void copy_pool_stratum(struct pool *pool_stratum, struct pool *pool);
 static uint32_t api_get_cpm(uint32_t freq)
 {
 	return cpm_table[freq / 12 - 2];
@@ -1210,6 +1211,7 @@ static inline void avalon7_detect(bool __maybe_unused hotplug)
 		avalon7_iic_detect();
 }
 
+#define PAIR_CHECK
 static void *avalon7_ssp_fill_pairs(void *userdata)
 {
 	char threadname[16];
@@ -1220,13 +1222,32 @@ static void *avalon7_ssp_fill_pairs(void *userdata)
 	ssp_pair pair;
 	uint8_t pair_counts;
 	int i, err;
-	uint32_t tmp;
+	uint32_t tmp, tail[2];
+	struct pool pool_mirror, *pool;
 
 	snprintf(threadname, sizeof(threadname), "%d/Av7ssp", avalon7->device_id);
 	RenameThread(threadname);
 
 	cgsleep_ms(3000);
 	while (likely(!avalon7->shutdown)) {
+#ifdef PAIR_CHECK
+		if (ssp_sorter_get_pair(pair)) {
+			pool = current_pool();
+			copy_pool_stratum(&pool_mirror, pool);
+			tail[0] = gen_merkle_tail(&pool_mirror, pair[0]);
+			tail[1] = gen_merkle_tail(&pool_mirror, pair[1]);
+			if (tail[0] != tail[1]) {
+				applog(LOG_NOTICE, "(Pair!=Tail) = (%08x-%08x), (%08x-%08x)",
+						pair[0], tail[0],
+						pair[1], tail[1]);
+			} else {
+				applog(LOG_NOTICE, "(Pair==Tail) = (%08x-%08x), (%08x-%08x)",
+						pair[0], tail[0],
+						pair[1], tail[1]);
+			}
+		}
+		cgsleep_ms(opt_avalon7_polling_delay);
+#else
 		for (i = 1; i < AVA7_DEFAULT_MODULARS; i++) {
 			if (!info->enable[i])
 				continue;
@@ -1256,6 +1277,7 @@ static void *avalon7_ssp_fill_pairs(void *userdata)
 			}
 			cgsleep_ms(opt_avalon7_polling_delay);
 		}
+#endif
 	}
 
 	return NULL;

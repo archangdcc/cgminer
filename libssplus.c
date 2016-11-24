@@ -143,12 +143,15 @@ int ssp_sorter_get_pair(ssp_pair pair)
 	if (!ssp_pair_head)
 		return 0;
 
+	mutex_lock(&(sspinfo.hasher_lock));
+
 	pair[0] = ssp_pair_head->nonce2[0];
 	pair[1] = ssp_pair_head->nonce2[1];
 
 	tmp = ssp_pair_head;
 	ssp_pair_head = ssp_pair_head->next;
 	free(tmp);
+	mutex_unlock(&(sspinfo.hasher_lock));
 
 	return 1;
 }
@@ -180,9 +183,9 @@ static void *ssp_hasher_thread(void *userdata)
 		}
 
 		last_nonce2 = sspinfo.pram_addr[point_index] & 0xffffffff;
-		applog(LOG_DEBUG, "(%08llx -> %08llx)",
-				sspinfo.pram_addr[point_index] & 0xffffffff,
-				sspinfo.pram_addr[point_index] >> 32);
+		applog(LOG_NOTICE, "(%08llx -> %08llx)",
+				sspinfo.pram_addr[point_index] >> 32,
+				sspinfo.pram_addr[point_index] & 0xffffffff);
 
 		point_index = (point_index + 1) % (POINTS_RAM_SIZE / sizeof(struct ssp_point));
 		if (valid_nonce2)
@@ -371,6 +374,43 @@ void ssp_hasher_update_stratum(struct pool *pool, bool clean)
 	mutex_unlock(&(sspinfo.hasher_lock));
 }
 
+static void gen_hash(unsigned char *data, unsigned char *hash, int len)
+{
+	unsigned char hash1[32];
+
+	sha256(data, len, hash1);
+	sha256(hash1, 32, hash);
+}
+
+static void gen_merkle_root(struct pool *pool, uint32_t nonce2le)
+{
+	unsigned char merkle_root[32], merkle_sha[64];
+	uint32_t *data32, *swap32;
+	int i;
+
+	cg_memcpy(pool->coinbase + pool->nonce2_offset, &nonce2le, pool->n2size);
+
+	/* Generate merkle root */
+	gen_hash(pool->coinbase, merkle_root, pool->coinbase_len);
+	cg_memcpy(merkle_sha, merkle_root, 32);
+	for (i = 0; i < pool->merkles; i++) {
+		cg_memcpy(merkle_sha + 32, pool->swork.merkle_bin[i], 32);
+		gen_hash(merkle_sha, merkle_root, 64);
+		cg_memcpy(merkle_sha, merkle_root, 32);
+	}
+	data32 = (uint32_t *)merkle_sha;
+	swap32 = (uint32_t *)merkle_root;
+	flip32(swap32, data32);
+
+	{
+		char *merkle_hash;
+
+		merkle_hash = bin2hex((const unsigned char *)merkle_root, 32);
+		applog(LOG_NOTICE, "[M-N2]: %s-%08x", merkle_hash, nonce2le);
+		free(merkle_hash);
+	}
+}
+
 void ssp_hasher_test(void)
 {
 	struct pool test_pool;
@@ -400,6 +440,7 @@ void ssp_hasher_test(void)
 		{0xce,0x79,0x63,0xa5,0x43,0xe1,0x00,0x18,0xf2,0x3e,0x3d,0xfd,0x52,0x01,0x17,0x55,0xe5,0xc8,0x47,0x37,0xa0,0xd0,0x86,0x51,0xb8,0x8c,0x89,0x56,0x71,0xf3,0x96,0x49},
 		{0x88,0x73,0x89,0x13,0xa3,0xc7,0x3a,0xee,0x99,0x6c,0xc9,0xf5,0x76,0x0a,0xec,0x41,0xf6,0x97,0x99,0xd4,0x9b,0x09,0x36,0x4c,0x12,0xb3,0x6a,0x37,0x9c,0x18,0x42,0xef},
 	};
+	test_pool.n2size = 4;
 	test_pool.nonce2_offset = 97;
 	test_pool.coinbase_len = sizeof(coinbase);
 	test_pool.coinbase = cgcalloc(sizeof(coinbase), 1);
@@ -426,6 +467,8 @@ void ssp_hasher_test(void)
 			cgtime(&t_find_pair);
 			pair_diff = tdiff(&t_find_pair, &t_start);
 			applog(LOG_NOTICE, "%0.4fs\tGot a pair %08x-%08x", pair_diff, pair[0], pair[1]);
+			gen_merkle_root(&test_pool, pair[0]);
+			gen_merkle_root(&test_pool, pair[1]);
 			memcpy(&t_start, &t_find_pair, sizeof(t_find_pair));
 		}
 	}
