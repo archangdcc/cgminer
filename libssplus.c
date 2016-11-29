@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "uthash.h"
 #include "utlist.h"
 #include "sha2.h"
 
@@ -54,7 +53,6 @@ struct ssp_hasher_instruction {
 struct ssp_point {
 	uint32_t nonce2;
 	uint32_t tail;
-	UT_hash_handle hh;
 };
 
 struct ssp_info {
@@ -71,49 +69,64 @@ struct ssp_pair_element {
 	struct ssp_pair_element *next;
 };
 
+struct ssp_hashtable {
+	struct ssp_point *point;
+	uint32_t size;
+	uint32_t max_size;  /* must be powers of 2 */
+	uint32_t limit;  /* probing limit */
+};
+
 static struct ssp_info sspinfo;
-static struct ssp_point *ssp_points = NULL;
+static struct ssp_hashtable *ssp_ht = NULL;
 static struct ssp_pair_element *ssp_pair_head = NULL;
 
 static void ssp_sorter_insert(const struct ssp_point *point)
 {
-	struct ssp_point *tmp = NULL;
-	struct ssp_point *copy = cgmalloc(sizeof(struct ssp_point));
+	int i;
+	uint32_t key;
 
-	copy->nonce2 = point->nonce2;
-	copy->tail = point->tail;
+	for (i = 0; i < ssp_ht->limit; i++) {
+		key = (point->tail + i) % (ssp_ht->max_size);
+		if (ssp_ht->points[key].tail == 0) {
+			/* insert */
+			ssp_ht->points[key].tail = point->tail;
+			ssp_ht->points[key].nonce2 = point->nonce2;
+			return;
+		} else if (ssp_ht->points[key].tail == point->tail) {
+			/* get a collision */
+			struct ssp_pair_element *pair = cgmalloc(sizeof(struct ssp_pair_element));
+			pair->nonce2[0] = point->nonce2;
+			pair->nonce2[1] = ssp_ht->points[key].nonce2;
+			LL_APPEND(ssp_pair_head, pair);
+			applog(LOG_DEBUG, "Tail: %08x, N2: %08x--%08x",
+					copy->tail, copy->nonce2, tmp->nonce2);
 
-	HASH_FIND_INT(ssp_points, &copy->tail, tmp);
-	if (!tmp) {
-		HASH_ADD_INT(ssp_points, tail, copy);
-		return;
+			/* update nonce2 of the point */
+			ssp_ht->points[key].nonce2 = point->nonce2;
+			/* or just delete it? */
+			/* or leave it be? */
+			return;
+		}
 	}
 
-	struct ssp_pair_element *pair = cgmalloc(sizeof(struct ssp_pair_element));
-	pair->nonce2[0] = copy->nonce2;
-	pair->nonce2[1] = tmp->nonce2;
-	LL_APPEND(ssp_pair_head, pair);
-	applog(LOG_DEBUG, "Tail: %08x, N2: %08x--%08x",
-	       copy->tail, copy->nonce2, tmp->nonce2);
-
-	HASH_DEL(ssp_points, tmp);
-	free(tmp);
+	/* discard */
 	return;
 }
 
-void ssp_sorter_init(void)
+void ssp_sorter_init(uint32_t max_size, uint32_t limit)
 {
+	ssp_ht = (struct ssp_hashtable *)cgmalloc(sizeof(struct ssp_hashtable));
 
+	ssp_ht->max_size = max_size;
+	ssp_ht->limit = limit;
+	ssp_ht->size = 0;
+	ssp_ht->points = (struct ssp_point *)cgmalloc(sizeof(struct ssp_point) * max_size);
+	memset(ssp_ht->points, 0, sizeof(struct ssp_point) * size);
 }
 
 void ssp_sorter_flush(void)
 {
-	struct ssp_point *current, *tmp;
-
-	HASH_ITER(hh, ssp_points, current, tmp) {
-		HASH_DEL(ssp_points, current);
-		free(current);
-	}
+	memset(ssp_ht->points, 0, sizeof(struct ssp_point) * ssp_ht->max_size);
 
 	/* FIXME: free ssp_pair_head when the newblock found */
 }
@@ -394,7 +407,7 @@ void ssp_hasher_test(void)
 	}
 	memcpy(test_pool.coinbase, coinbase, sizeof(coinbase));
 
-	ssp_sorter_init();
+	ssp_sorter_init(1 << 10, 1);
 	ssp_hasher_init();
 
 	for (i = 0; i < 2; i++) {
