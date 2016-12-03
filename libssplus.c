@@ -70,7 +70,7 @@ struct ssp_pair_element {
 };
 
 struct ssp_hashtable {
-	struct ssp_point *point;
+	struct ssp_point *points;
 	uint32_t size;
 	uint32_t max_size;  /* must be powers of 2 */
 	uint32_t limit;  /* probing limit */
@@ -102,7 +102,7 @@ static void ssp_sorter_insert(const struct ssp_point *point)
 			pair->nonce2[1] = ssp_ht->points[key].nonce2;
 			LL_APPEND(ssp_pair_head, pair);
 			applog(LOG_DEBUG, "Tail: %08x, N2: %08x--%08x",
-					copy->tail, copy->nonce2, tmp->nonce2);
+					point->tail, pair->nonce2[0], pair->nonce2[1]);
 
 			/* update nonce2 of the point */
 			ssp_ht->points[key].nonce2 = point->nonce2;
@@ -126,7 +126,7 @@ void ssp_sorter_init(uint32_t max_size, uint32_t limit, uint32_t c1, uint32_t c2
 	ssp_ht->c2 = c2;
 	ssp_ht->size = 0;
 	ssp_ht->points = (struct ssp_point *)cgmalloc(sizeof(struct ssp_point) * max_size);
-	memset(ssp_ht->points, 0, sizeof(struct ssp_point) * size);
+	memset(ssp_ht->points, 0, sizeof(struct ssp_point) * max_size);
 }
 
 void ssp_sorter_flush(void)
