@@ -74,6 +74,8 @@ struct ssp_hashtable {
 	uint32_t size;
 	uint32_t max_size;  /* must be powers of 2 */
 	uint32_t limit;  /* probing limit */
+	uint32_t c1;
+	uint32_t c2;
 };
 
 static struct ssp_info sspinfo;
@@ -86,7 +88,8 @@ static void ssp_sorter_insert(const struct ssp_point *point)
 	uint32_t key;
 
 	for (i = 0; i < ssp_ht->limit; i++) {
-		key = (point->tail + i) % (ssp_ht->max_size);
+		key = (point->tail + ssp_ht->c1 * i + ssp_ht->c2 * i * i) %
+			(ssp_ht->max_size);
 		if (ssp_ht->points[key].tail == 0) {
 			/* insert */
 			ssp_ht->points[key].tail = point->tail;
@@ -113,12 +116,14 @@ static void ssp_sorter_insert(const struct ssp_point *point)
 	return;
 }
 
-void ssp_sorter_init(uint32_t max_size, uint32_t limit)
+void ssp_sorter_init(uint32_t max_size, uint32_t limit, uint32_t c1, uint32_t c2)
 {
 	ssp_ht = (struct ssp_hashtable *)cgmalloc(sizeof(struct ssp_hashtable));
 
 	ssp_ht->max_size = max_size;
 	ssp_ht->limit = limit;
+	ssp_ht->c1 = c1;
+	ssp_ht->c2 = c2;
 	ssp_ht->size = 0;
 	ssp_ht->points = (struct ssp_point *)cgmalloc(sizeof(struct ssp_point) * max_size);
 	memset(ssp_ht->points, 0, sizeof(struct ssp_point) * size);
@@ -407,7 +412,7 @@ void ssp_hasher_test(void)
 	}
 	memcpy(test_pool.coinbase, coinbase, sizeof(coinbase));
 
-	ssp_sorter_init(1 << 10, 1);
+	ssp_sorter_init(HT_SIZE, HT_PRB_LMT, HT_PRB_C1, HT_PRB_C2);
 	ssp_hasher_init();
 
 	for (i = 0; i < 2; i++) {
