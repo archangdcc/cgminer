@@ -9,10 +9,10 @@
 #ifndef LIBSSPLUS_H
 #define LIBSSPLUS_H
 
-#define HT_SIZE (1 << 30)
-#define HT_PRB_LMT 2
+#define HT_SIZE (1 << 26)
+#define HT_PRB_LMT 4
 #define HT_PRB_C1 1
-#define HT_PRB_C2 0
+#define HT_PRB_C2 1
 
 typedef uint32_t ssp_pair[2];
 
