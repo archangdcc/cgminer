@@ -56,6 +56,12 @@ struct ssp_point {
 	uint32_t tail;
 };
 
+struct ssp_cell {
+	uint32_t nonce2;
+	uint32_t tail;
+	uint32_t stratum;
+};
+
 struct ssp_info {
 	pthread_t hasher_thr;
 	pthread_mutex_t hasher_lock;
@@ -71,7 +77,8 @@ struct ssp_pair_element {
 };
 
 struct ssp_hashtable {
-	struct ssp_point *cells;
+	struct ssp_cell *cells;
+	uint32_t stratum;
 	uint32_t size;
 	uint32_t max_size;  /* must be powers of 2 */
 	uint32_t limit;  /* probing limit */
@@ -110,10 +117,11 @@ static void ssp_sorter_insert(const struct ssp_point *point)
 	for (i = 0; i < ssp_ht->limit; i++) {
 		key = (point->tail + ssp_ht->c1 * i + ssp_ht->c2 * i * i) %
 			(ssp_ht->max_size);
-		if (ssp_ht->cells[key].nonce2 == 0 && ssp_ht->cells[key].tail == 0) {
+		if (ssp_ht->cells[key].stratum != ssp_ht->stratum) {
 			/* insert */
 			ssp_ht->cells[key].tail = point->tail;
 			ssp_ht->cells[key].nonce2 = point->nonce2;
+			ssp_ht->cells[key].stratum = ssp_ht->stratum;
 			ssp_ht->size++;
 			goto out;
 		}
@@ -131,11 +139,9 @@ static void ssp_sorter_insert(const struct ssp_point *point)
 			pair_count++;
 #endif
 
-			/* update nonce2 of the point */
-			ssp_ht->cells[key].nonce2 = 0;
-			ssp_ht->cells[key].tail = 0;
-			/* or just delete it? */
-			/* or leave it be? */
+			/* delete it */
+			ssp_ht->cells[key].stratum = 0;
+
 			goto out;
 		}
 	}
@@ -156,13 +162,14 @@ void ssp_sorter_init(uint32_t max_size, uint32_t limit, uint32_t c1, uint32_t c2
 
 	ssp_ht = (struct ssp_hashtable *)cgmalloc(sizeof(struct ssp_hashtable));
 
+	ssp_ht->stratum = 0;
 	ssp_ht->max_size = max_size;
 	ssp_ht->limit = limit;
 	ssp_ht->c1 = c1;
 	ssp_ht->c2 = c2;
 	ssp_ht->size = 0;
-	ssp_ht->cells = (struct ssp_point *)cgmalloc(sizeof(struct ssp_point) * max_size);
-	memset(ssp_ht->cells, 0, sizeof(struct ssp_point) * max_size);
+	ssp_ht->cells = (struct ssp_cell *)cgmalloc(sizeof(struct ssp_cell) * max_size);
+	memset(ssp_ht->cells, 0, sizeof(struct ssp_cell) * max_size);
 
 	ssp_pair_head = (struct ssp_pair_element *)cgmalloc(sizeof(struct ssp_pair_element));
 	ssp_pair_tail = ssp_pair_head;
@@ -197,7 +204,10 @@ void ssp_sorter_flush(void)
 #endif
 
 	ssp_ht->size = 0;
-	memset(ssp_ht->cells, 0, sizeof(struct ssp_point) * ssp_ht->max_size);
+	if (ssp_ht->stratum == 0xffffffff)
+		ssp_ht->stratum = 1;
+	else
+		ssp_ht->stratum++;
 
 	/* MM only use one stratum, we need drop all pairs */
 	while (ssp_pair_head != ssp_pair_tail) {
